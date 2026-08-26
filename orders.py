@@ -62,7 +62,24 @@ def parse(input):
         return None
 
 def trades(order): #Vazio por enquanto,
-    return []
+    book = bids if order['Lado'] == 'sell' else offers # lógica contrária, se a order for sell, tem que olhar o book de 'buy' (bids)
+    trade = []
+
+    while order['Quantidade'] > 0 and book: # loop que varre o book, enquanto não for 100% liquidado ou se ainda tiver orders
+        best_order = book[0]
+        if not matches(order, best_order): 
+            break # lógica: se não cruza com o melhor, nem vale a pena rodar toda a lista
+
+        qty = min(order['Quantidade'], best_order['Quantidade']) #pega a quantidade que vai ser feita o trade
+        trade.append({'price': best_order['Preço'], 'qty': qty})
+
+        order['Quantidade'] -= qty 
+        best_order['Quantidade'] -= qty #subtrai quando foi feito o trade, pra saber se sobrou quantidade no book
+
+        if best_order['Quantidade'] == 0: #tira do book quantidades liquidadas
+            book.pop(0)
+
+    return trade
 
 #antes de fazer toda a lógica da função trades: vou escrever a função insert_book e compara_price, pois a função trades depende dessa
 
@@ -78,6 +95,14 @@ def insert_book(order):
     while i < len(book) and not compare_price(order, book[i]): # loop continua enquanto o price da order não for melhor que a order do book
         i += 1 #vai contanndo os indices
     book.insert(i, order) # coloca a order no book no indice i e empurra todos os outros pra trás (se tiver)
+
+def matches(order, book_order):
+    if order['Ordem'] == 'market':
+        return True
+    if order['Lado'] == 'buy':
+        return order['Preço'] >= book_order['Preço'] # lógica parecida com do compare_price, nesse caso order['preço'] = book_order['preço'] casa 
+    else:
+        return order['Preço'] <= book_order['Preço']
 
 id = 0
 
@@ -95,15 +120,13 @@ def main():
 
         id += 1
         order['id'] = id #deixar o id como int por enquanto, str creio que será dificil de tratar depois
-
-        if order['Ordem'] == 'limit':
-            insert_book(order)
-
-        print('BIDS:', [(str(o['Preço']), o['Quantidade']) for o in bids])
-        print('OFFERS:', [(str(o['Preço']), o['Quantidade']) for o in offers])
+        
         
         for trade in trades(order):
             print(f'Trade, price: {trade['price']}, qty: {trade['qty']}')
+
+        if order['Ordem'] == 'limit' and order['Quantidade'] > 0:
+            insert_book(order)
 
 if __name__ == '__main__':
     main()
