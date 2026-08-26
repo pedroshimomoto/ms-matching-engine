@@ -1,6 +1,7 @@
 from decimal import Decimal, InvalidOperation
 seq = 0
-orders_list = []
+bids = [] #nova abordagem, não será lista única
+offers = [] # uma lista para cada lado
 
 # funções auxiliares para tratamento dos textos
 def qty_parse(texto):
@@ -63,6 +64,21 @@ def parse(input):
 def trades(order): #Vazio por enquanto,
     return []
 
+#antes de fazer toda a lógica da função trades: vou escrever a função insert_book e compara_price, pois a função trades depende dessa
+
+def compare_price(order, book_order):
+    if order['Lado'] == 'buy': #lógica: melhor preço de buy: maior; melhor preço de sell: menor
+        return order['Preço'] > book_order['Preço'] #lógica booleana, vai devolver True ou false, comparando a order nova com a order do book
+    else:
+        return order['Preço'] < book_order['Preço']
+
+def insert_book(order):
+    book = bids if order['Lado'] == 'buy' else offers
+    i = 0
+    while i < len(book) and not compare_price(order, book[i]): # loop continua enquanto o price da order não for melhor que a order do book
+        i += 1 #vai contanndo os indices
+    book.insert(i, order) # coloca a order no book no indice i e empurra todos os outros pra trás (se tiver)
+
 id = 0
 
 def main():
@@ -79,6 +95,13 @@ def main():
 
         id += 1
         order['id'] = id #deixar o id como int por enquanto, str creio que será dificil de tratar depois
+
+        if order['Ordem'] == 'limit':
+            insert_book(order)
+
+        print('BIDS:', [(str(o['Preço']), o['Quantidade']) for o in bids])
+        print('OFFERS:', [(str(o['Preço']), o['Quantidade']) for o in offers])
+        
         for trade in trades(order):
             print(f'Trade, price: {trade['price']}, qty: {trade['qty']}')
 
