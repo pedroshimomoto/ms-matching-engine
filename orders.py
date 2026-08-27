@@ -57,11 +57,16 @@ def parse(input):
             'Lado': side_parse(splitted[1]),
             'Quantidade': qty_parse(splitted[2]),          
         }
+    
+    elif order == 'print': # No caso do print book, retorna nada, mas imprime via função print_book()
+        print_book() # 0 parâmetros mesmo
+        return None
+    
     else:
         print(f'Comando desconhecido')
         return None
 
-def trades(order): #Vazio por enquanto,
+def trades(order): 
     book = bids if order['Lado'] == 'sell' else offers # lógica contrária, se a order for sell, tem que olhar o book de 'buy' (bids)
     trade = []
 
@@ -81,7 +86,20 @@ def trades(order): #Vazio por enquanto,
 
     return trade
 
-#antes de fazer toda a lógica da função trades: vou escrever a função insert_book e compara_price, pois a função trades depende dessa
+def print_book():
+    #rastreia todos as orders de cada book, deixando
+    bid_lines = [f'{book_order['Quantidade']} @ {book_order['Preço']}' for book_order in bids] 
+    offer_lines = [f'{book_order['Quantidade']} @ {book_order['Preço']}' for book_order in offers]
+
+    print(f'{'Ordens de Compra':<20}| Ordens de Venda')
+    print(f'{'-'*20}|{'-'*20}')
+
+    for i in range(max(len(bid_lines), len(offer_lines))): #varre o índice de cada linha, se não tiver mais orders imprime nada
+
+        buy = bid_lines[i] if i < len(bid_lines) else ''
+        sell = offer_lines[i] if i < len(offer_lines) else ''
+        print(f'{buy:<20}| {sell}')
+
 
 def compare_price(order, book_order):
     if order['Lado'] == 'buy': #lógica: melhor preço de buy: maior; melhor preço de sell: menor
