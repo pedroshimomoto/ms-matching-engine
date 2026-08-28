@@ -2,6 +2,7 @@ from decimal import Decimal, InvalidOperation
 seq = 0
 bids = [] #nova abordagem, não será lista única
 offers = [] # uma lista para cada lado
+orders_by_id = {}
 
 # funções auxiliares para tratamento dos textos
 def qty_parse(texto):
@@ -57,7 +58,20 @@ def parse(input):
             'Lado': side_parse(splitted[1]),
             'Quantidade': qty_parse(splitted[2]),          
         }
-    
+
+    elif order == 'cancel':
+        if len(splitted) == 3 and splitted[1].lower() == 'order':
+            try:
+                order_id = int(splitted[2]) #precisa converter pra int, pois o splitted é tudo em str
+            except ValueError:
+                print(f'id inválido: {splitted[2]}')
+                return None
+            cancel_order(order_id)
+            return None
+        else:
+            print(f'Uso: cancel order <id>')
+            return None
+
     elif order == 'print': # No caso do print book, retorna nada, mas imprime via função print_book()
         print_book() # 0 parâmetros mesmo
         return None
@@ -83,6 +97,7 @@ def trades(order):
 
         if best_order['Quantidade'] == 0: #tira do book quantidades liquidadas
             book.pop(0)
+            orders_by_id.pop(best_order['id'], None)
 
     return trade
 
@@ -100,6 +115,17 @@ def print_book():
         sell = offer_lines[i] if i < len(offer_lines) else ''
         print(f'{buy:<20}| {sell}')
 
+def cancel_order(order_id):
+    order =orders_by_id.get(order_id) 
+    if order == None:
+        print(f'Order não existente')
+        return False
+    book = bids if order['Lado'] == 'buy' else offers # mesma lógica, retirar a order do book certo
+    book.remove(order)
+
+    del orders_by_id[order_id] # remove do dict também
+    print(f'Order cancelled id: {order_id}')
+    return True 
 
 def compare_price(order, book_order):
     if order['Lado'] == 'buy': #lógica: melhor preço de buy: maior; melhor preço de sell: menor
@@ -113,6 +139,7 @@ def insert_book(order):
     while i < len(book) and not compare_price(order, book[i]): # loop continua enquanto o price da order não for melhor que a order do book
         i += 1 #vai contanndo os indices
     book.insert(i, order) # coloca a order no book no indice i e empurra todos os outros pra trás (se tiver)
+    orders_by_id[order['id']] = order #adiciona a order no seu id respectivo O(1)
 
 def matches(order, book_order):
     if order['Ordem'] == 'market':
@@ -145,6 +172,7 @@ def main():
 
         if order['Ordem'] == 'limit' and order['Quantidade'] > 0:
             insert_book(order)
+            print(f'Order created: {order['Lado']} {order['Quantidade']} @ {order['Preço']} id: {order['id']}') #print de quando cria a order
 
 if __name__ == '__main__':
     main()
