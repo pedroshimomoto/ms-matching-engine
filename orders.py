@@ -72,6 +72,32 @@ def parse(input):
             print(f'Uso: cancel order <id>')
             return None
 
+    elif order == 'edit':
+        if len(splitted) < 4:
+            print(f'Uso: edit order [price <valor>] [qty <valor>]')
+            return None
+        try:
+            order_id = int(splitted[2])
+        except ValueError:
+            print(f'id inválido: {splitted[2]}')
+            return None
+
+        new_price = None
+        new_qty = None
+        i = 3 # começa a partir do id, não faz sentido o loop pegar edit ou order
+        while i < len(splitted) -1:
+            field = splitted[i].lower()
+            if field == 'price':
+                new_price = price_parse(splitted[i+1])
+            elif field == 'qty':
+                new_qty = qty_parse(splitted[i+1])
+            else:
+                print(f'Comando desconhecido: {field}')
+                return None
+            i += 2
+        edit_order(order_id, new_price, new_qty)
+        return None
+
     elif order == 'print': # No caso do print book, retorna nada, mas imprime via função print_book()
         print_book() # 0 parâmetros mesmo
         return None
@@ -118,7 +144,7 @@ def print_book():
 def cancel_order(order_id):
     order =orders_by_id.get(order_id) 
     if order == None:
-        print(f'Order não existente')
+        print(f'Order não existe')
         return False
     book = bids if order['Lado'] == 'buy' else offers # mesma lógica, retirar a order do book certo
     book.remove(order)
@@ -126,6 +152,41 @@ def cancel_order(order_id):
     del orders_by_id[order_id] # remove do dict também
     print(f'Order cancelled id: {order_id}')
     return True 
+
+def edit_order(order_id, new_price, new_qty):
+    order = orders_by_id.get(order_id)
+    if order == None:
+        print(f'Order não existe')
+        return False
+
+    # corpo da função veio certo, mas os valores continuaram os mesmos:
+    same_price = new_price is None or new_price == order['Preço']
+    same_qty = new_qty is None or new_qty == order['Quantidade']
+
+    if same_price and same_qty:
+        print(f'Nenhuma mudança a ser editada')
+        return False
+
+    # mudanças que devem mudar o lugar na fila
+    change_price = new_price is not None and new_price != order['Preço'] # booleana, retorna se o novo preço muda ou quantidade aumenta 
+    change_qty = new_qty is not None and new_qty > order['Quantidade'] # aumentar quantidade prejudica os player com posição abaixo, então deve perder prioridade
+
+    if change_price or change_qty:
+        book = bids if order['Lado'] == 'buy' else offers
+        book.remove(order) #já tira do book a order a ser editada
+
+        if new_price is not None:
+            order['Preço'] = new_price
+        if new_qty is not None: #dois if, pois pode ser que precise alterar os dois, ou apenas um
+            order['Quantidade'] = new_qty
+        insert_book(order)
+    else:
+        if new_qty is not None:
+            order['Quantidade'] = new_qty #apenas edita, deixa na mesma posição da fila, pois diminuiu qty
+
+    print(f'Order eddited id: {order_id} -> {order['Lado']} {order['Quantidade']} @ {order['Preço']}')
+    return True
+    
 
 def compare_price(order, book_order):
     if order['Lado'] == 'buy': #lógica: melhor preço de buy: maior; melhor preço de sell: menor
@@ -173,6 +234,8 @@ def main():
         if order['Ordem'] == 'limit' and order['Quantidade'] > 0:
             insert_book(order)
             print(f'Order created: {order['Lado']} {order['Quantidade']} @ {order['Preço']} id: {order['id']}') #print de quando cria a order
+
+
 
 if __name__ == '__main__':
     main()
