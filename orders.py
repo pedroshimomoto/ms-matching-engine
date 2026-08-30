@@ -3,6 +3,7 @@ seq = 0
 bids = [] #nova abordagem, não será lista única
 offers = [] # uma lista para cada lado
 orders_by_id = {}
+pegged_orders = []
 
 # funções auxiliares para tratamento dos textos
 def qty_parse(texto):
@@ -101,7 +102,21 @@ def parse(input):
     elif order == 'print': # No caso do print book, retorna nada, mas imprime via função print_book()
         print_book() # 0 parâmetros mesmo
         return None
-    
+
+    elif order == 'peg':
+        if len(splitted) != 4:
+            print(f'Uso: peg <offer|bid> <buy|sell> <qty>')
+            return None
+        ref = splitted[1].lower() # captar o book que vai ancorar o melhor preço
+        if ref not in ('bid', 'offer'):
+            print(f'Referência inválida: {ref}')
+            return None
+        return {
+            'Ordem': splitted[0].lower(),
+            'Ref': ref,
+            'Lado': side_parse(splitted[2]),
+            'Quantidade': qty_parse(splitted[3]),
+        }    
     else:
         print(f'Comando desconhecido')
         return None
@@ -187,6 +202,9 @@ def edit_order(order_id, new_price, new_qty):
     print(f'Order eddited id: {order_id} -> {order['Lado']} {order['Quantidade']} @ {order['Preço']}')
     return True
     
+def best_order(ref):
+    book = bids if ref =='bid' else offers # Parser vai pegar apenas a expressão e não o book direto
+    return book[0]['Preço'] if book else None
 
 def compare_price(order, book_order):
     if order['Lado'] == 'buy': #lógica: melhor preço de buy: maior; melhor preço de sell: menor
@@ -226,7 +244,17 @@ def main():
 
         id += 1
         order['id'] = id #deixar o id como int por enquanto, str creio que será dificil de tratar depois
-        
+
+        if order['Ordem'] == 'peg':
+            best_price = best_order(order['Ref'])
+            if best_price is None:
+                print(f'Nenhum preço definido para usar como âncora')
+                continue
+            order['Preço'] = best_price # tem preço de âncora, usa esse
+            insert_book(order)
+            pegged_orders.append(order)
+            print(f'Peg created: {order['Lado']} {order['Quantidade']} @ {order['Preço']} id: {order['id']}')
+            continue
         
         for trade in trades(order):
             print(f'Trade, price: {trade['price']}, qty: {trade['qty']}')
