@@ -1,10 +1,18 @@
 from decimal import Decimal, InvalidOperation
 from collections import deque
-seq = 0
+
+# =============================================================
+# GLOBAL
+# =============================================================
+
 bids = deque() #usando deque() para ganhar eficiência nas operações de ponta
 offers = deque() 
 orders_by_id = {}
 pegged_orders = []
+
+# =============================================================
+# PARSING E VALIDAÇÃO DE ENTRADA
+# =============================================================
 
 # funções auxiliares para tratamento dos textos
 def qty_parse(texto):
@@ -33,8 +41,8 @@ def side_parse(texto):
 
 #função principal do parse
 
-def parse(input):
-    splitted = input.split()
+def parse(linha):
+    splitted = linha.split()
     if not splitted:
         return None
 
@@ -125,6 +133,32 @@ def parse(input):
         print(f'Comando desconhecido')
         return None
 
+# =============================================================
+# NÚCLEO DO MATCHING  (requisitos 1 e 2)
+# =============================================================
+
+def matches(order, book_order):
+    if order['Ordem'] == 'market':
+        return True
+    if order['Lado'] == 'buy':
+        return order['Preço'] >= book_order['Preço'] # lógica parecida com do compare_price, nesse caso order['preço'] = book_order['preço'] casa 
+    else:
+        return order['Preço'] <= book_order['Preço']
+
+def compare_price(order, book_order):
+    if order['Lado'] == 'buy': #lógica: melhor preço de buy: maior; melhor preço de sell: menor
+        return order['Preço'] > book_order['Preço'] #lógica booleana, vai devolver True ou false, comparando a order nova com a order do book
+    else:
+        return order['Preço'] < book_order['Preço']
+
+def insert_book(order):
+    book = bids if order['Lado'] == 'buy' else offers
+    i = 0
+    while i < len(book) and not compare_price(order, book[i]): # loop continua enquanto o price da order não for melhor que a order do book
+        i += 1 #vai contanndo os indices
+    book.insert(i, order) # coloca a order no book no indice i e empurra todos os outros pra trás (se tiver)
+    orders_by_id[order['id']] = order #adiciona a order no seu id respectivo O(1)
+
 def trades(order): 
     book = bids if order['Lado'] == 'sell' else offers # lógica contrária, se a order for sell, tem que olhar o book de 'buy' (bids)
     trade = []
@@ -143,26 +177,18 @@ def trades(order):
         if best_order['Quantidade'] == 0: #tira do book quantidades liquidadas
             book.popleft()
             orders_by_id.pop(best_order['id'], None)
+            if best_order in pegged_orders:
+                pegged_orders.remove(best_order) 
 
     return trade
 
-def print_book():
-    #rastreia todos as orders de cada book, deixando
-    bid_lines = [f'{book_order['Quantidade']} @ {book_order['Preço']}' for book_order in bids] 
-    offer_lines = [f'{book_order['Quantidade']} @ {book_order['Preço']}' for book_order in offers]
-
-    print(f'{'Ordens de Compra':<20}| Ordens de Venda')
-    print(f'{'-'*20}|{'-'*20}')
-
-    for i in range(max(len(bid_lines), len(offer_lines))): #varre o índice de cada linha, se não tiver mais orders imprime nada
-
-        buy = bid_lines[i] if i < len(bid_lines) else ''
-        sell = offer_lines[i] if i < len(offer_lines) else ''
-        print(f'{buy:<20}| {sell}')
+# =============================================================
+# CANCELAMENTO  (requisito 3)
+# =============================================================
 
 def cancel_order(order_id):
-    order =orders_by_id.get(order_id) 
-    if order == None:
+    order = orders_by_id.get(order_id) 
+    if order is None:
         print(f'Order não existe')
         return False
     book = bids if order['Lado'] == 'buy' else offers # mesma lógica, retirar a order do book certo
@@ -177,9 +203,13 @@ def cancel_order(order_id):
     reprice_peg()
     return True 
 
+# =============================================================
+# ALTERAÇÃO  (requisito 4)
+# =============================================================
+
 def edit_order(order_id, new_price, new_qty):
     order = orders_by_id.get(order_id)
-    if order == None:
+    if order is None:
         print(f'Order não existe')
         return False
 
@@ -208,10 +238,14 @@ def edit_order(order_id, new_price, new_qty):
         if new_qty is not None:
             order['Quantidade'] = new_qty #apenas edita, deixa na mesma posição da fila, pois diminuiu qty
 
-    print(f'Order eddited id: {order_id} -> {order['Lado']} {order['Quantidade']} @ {order['Preço']}')
+    print(f'Order edited id: {order_id} -> {order['Lado']} {order['Quantidade']} @ {order['Preço']}')
     reprice_peg() #editar ordem pode mudar o preço a ser ancorado
     return True
-    
+
+# =============================================================
+# ORDENS PEGGED  (requisito 5)
+# =============================================================
+
 def best_order(ref):
     book = bids if ref =='bid' else offers # Parser vai pegar apenas a expressão e não o book direto
     for order in book:
@@ -229,32 +263,32 @@ def reprice_peg():
         order['Preço'] = new_price
         insert_book(order)
 
-def compare_price(order, book_order):
-    if order['Lado'] == 'buy': #lógica: melhor preço de buy: maior; melhor preço de sell: menor
-        return order['Preço'] > book_order['Preço'] #lógica booleana, vai devolver True ou false, comparando a order nova com a order do book
-    else:
-        return order['Preço'] < book_order['Preço']
+# =============================================================
+# VISUALIZAÇÃO  (requisito adicional 1)
+# =============================================================
+    
+def print_book():
+    #rastreia todos as orders de cada book, deixando
+    bid_lines = [f'{book_order['Quantidade']} @ {book_order['Preço']}' for book_order in bids] 
+    offer_lines = [f'{book_order['Quantidade']} @ {book_order['Preço']}' for book_order in offers]
 
-def insert_book(order):
-    book = bids if order['Lado'] == 'buy' else offers
-    i = 0
-    while i < len(book) and not compare_price(order, book[i]): # loop continua enquanto o price da order não for melhor que a order do book
-        i += 1 #vai contanndo os indices
-    book.insert(i, order) # coloca a order no book no indice i e empurra todos os outros pra trás (se tiver)
-    orders_by_id[order['id']] = order #adiciona a order no seu id respectivo O(1)
+    print(f'{'Ordens de Compra':<20}| Ordens de Venda')
+    print(f'{'-'*20}|{'-'*20}')
 
-def matches(order, book_order):
-    if order['Ordem'] == 'market':
-        return True
-    if order['Lado'] == 'buy':
-        return order['Preço'] >= book_order['Preço'] # lógica parecida com do compare_price, nesse caso order['preço'] = book_order['preço'] casa 
-    else:
-        return order['Preço'] <= book_order['Preço']
+    for i in range(max(len(bid_lines), len(offer_lines))): #varre o índice de cada linha, se não tiver mais orders imprime nada
 
-id = 0
+        buy = bid_lines[i] if i < len(bid_lines) else ''
+        sell = offer_lines[i] if i < len(offer_lines) else ''
+        print(f'{buy:<20}| {sell}')
+
+# =============================================================
+# LOOP PRINCIPAL
+# =============================================================
+
+next_id = 0
 
 def main():
-    global id
+    global next_id
     while True:
         user_input = input(f'>>>')
         try:
@@ -265,8 +299,8 @@ def main():
         if order is None:
             continue
 
-        id += 1
-        order['id'] = id #deixar o id como int por enquanto, str creio que será dificil de tratar depois
+        next_id += 1
+        order['id'] = next_id #deixar o id como int por enquanto, str creio que será dificil de tratar depois
 
         if order['Ordem'] == 'peg':
             best_price = best_order(order['Ref'])
@@ -287,7 +321,6 @@ def main():
             print(f'Order created: {order['Lado']} {order['Quantidade']} @ {order['Preço']} id: {order['id']}') #print de quando cria a order
 
         reprice_peg() # sempre no final chama essa função para atualizar a posição da peg, se necessário
-
 
 if __name__ == '__main__':
     main()
