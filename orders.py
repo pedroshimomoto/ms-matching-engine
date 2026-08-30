@@ -108,6 +108,9 @@ def parse(input):
             print(f'Uso: peg <offer|bid> <buy|sell> <qty>')
             return None
         ref = splitted[1].lower() # captar o book que vai ancorar o melhor preço
+        if ref not in ('bid', 'offer'):
+            print(f'Referência inválida: {ref}')
+            return None
         if (ref == 'bid' and side_parse(splitted[2]) == 'sell') or (ref == 'offer' and side_parse(splitted[2]) == 'buy'):
             print(f'Combinação inválida, peg deve ancorar no lado da própria ordem')
             return None
