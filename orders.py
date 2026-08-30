@@ -1,7 +1,8 @@
 from decimal import Decimal, InvalidOperation
+from collections import deque
 seq = 0
-bids = [] #nova abordagem, não será lista única
-offers = [] # uma lista para cada lado
+bids = deque() #usando deque() para ganhar eficiência nas operações de ponta
+offers = deque() 
 orders_by_id = {}
 pegged_orders = []
 
@@ -140,7 +141,7 @@ def trades(order):
         best_order['Quantidade'] -= qty #subtrai quando foi feito o trade, pra saber se sobrou quantidade no book
 
         if best_order['Quantidade'] == 0: #tira do book quantidades liquidadas
-            book.pop(0)
+            book.popleft()
             orders_by_id.pop(best_order['id'], None)
 
     return trade
