@@ -65,7 +65,7 @@ Uma limit pode ser passiva e agressiva numa mesma execução: a parte que cruza 
 
 ### Trade é feito no preço da ordem passiva
 
-Quando uma orfem agressiva acontece, o preço do trade é o da que estava esperando no livro. Uma `limit buy 25` contra um offer de 20, negocia a 20.
+Quando uma ordem agressiva acontece, o preço do trade é o da que estava esperando no livro. Uma `limit buy 25` contra um offer de 20, negocia a 20.
 
 ### Market orders descartam a quantidade não executada
 
@@ -135,7 +135,7 @@ Alterar o preço de uma order pegged usando `edit` não tem efeito, pois a repre
 
 Os dois lados do book usam `collections.deque` em vez de `list`. Isso faz diferença na remoção do top no matching: `list.pop(0)` muda (desloca) todos os elementos seguintes (O(n)), já o `deque.popleft()` é O(1)
 
-O índice `orders_by_id` permite localizar qualquer ordem em O(1), essencial para cancelamento e alteração. O que aumenta a complexidade vem da estrutura do leque (remove, insert), pois esses comandos deslocam todos os elementos seguintes
+O índice `orders_by_id` permite localizar qualquer ordem em O(1), essencial para cancelamento e alteração. O que aumenta a complexidade vem da estrutura do deque (remove, insert), pois esses comandos deslocam todos os elementos seguintes
 
 **Onde isso ultrapassa O(n):** apenas `reprice_peg`, que executa uma operação O(n)
 (`remove` + `insert`) dentro de um laço que roda P vezes. No caso típico P é pequeno
@@ -165,11 +165,11 @@ Arquivo único, `orders.py`, dividido em blocos comentados que mapeiam os requis
 
 A função `trades` retorna a lista de negócios em vez de imprimi-los; a impressão fica a cargo do `main`.
 
-O enunciado permite implementação estrutural ou orientada a objetos. Optei pela estrutural. A conversão natural para POO agruparia o estado compartilhado: `bids`, `offers` e `orders_by_id` formariam um `OrderBook`; o contador de ids e a lógica de matching formariam uma `MatchingEngine`; os dicionários de ordem virariam uma classe `Order`, com `PeggedOrder` como especialização, por ter estado próprio (a referência) e comportamtento próprio (a reprecificação). As funções de parsing permaneceriam funções, por não terem estado.
+O enunciado permite implementação estrutural ou orientada a objetos. Optei pela estrutural. A conversão natural para POO agruparia o estado compartilhado: `bids`, `offers` e `orders_by_id` formariam um `OrderBook`; o contador de ids e a lógica de matching formariam uma `MatchingEngine`; os dicionários de ordem virariam uma classe `Order`, com `PeggedOrder` como especialização, por ter estado próprio (a referência) e comportamento próprio (a reprecificação). As funções de parsing permaneceriam funções, por não terem estado.
 
 ## Limitações conhecidas
 
 1. **Alteração que cruza não gera trade.** Se um `edit` leva uma ordem a um preço que cruza no outro book, ela é reinserida sem passar pelo matching. A correção exigiria casar a ordem enquanto está fora do livro
 2. **Reprecificação de pegged não dispara matching.** A função `reprice_peg` apenas reposiciona a ordem no livro. Uma pegged reprecificada para um preço que cruze, permanece no livro sem ter o trade
-3. **Prioridade da pegged reprecificada.** No exemplo do requisito 5, a ordem peg aparece na frente da limit que causou a mudança de preço, preservando sua prioridade original. Aqui ela é removida e reinserida, então entra no fim do novo nível de preço. O comportamente funcional (seguir a referência) está correto, apenas a posição relativa dentro do nível que muda
+3. **Prioridade da pegged reprecificada.** No exemplo do requisito 5, a ordem peg aparece na frente da limit que causou a mudança de preço, preservando sua prioridade original. Aqui ela é removida e reinserida, então entra no fim do novo nível de preço. O comportamento funcional (seguir a referência) está correto, apenas a posição relativa dentro do nível que muda
 4. **Inserção e remoção no meio do livro O(n)**, conforme detalhado na seção de complexidade 
