@@ -29,6 +29,8 @@ def price_parse(texto):
         price = Decimal(texto)
     except InvalidOperation:
         raise ValueError(f'Preço Inválido: {texto}')
+    if not price.is_finite(): # casos de NaN, infinity
+        raise ValueError(f'Preço inválido: {texto}')
     if price <= 0:
         raise ValueError('O preço deve ser positivo')  #tratando hipótese de apenas posicoes long
     return price
@@ -105,6 +107,11 @@ def parse(linha):
                 print(f'Comando desconhecido: {field}')
                 return None
             i += 2
+
+        if i != len(splitted): #sobrou algum argumento sem par
+            print(f'Argumento incompleto: {splitted[i]}')
+            return None
+        
         edit_order(order_id, new_price, new_qty)
         return None
 
@@ -290,7 +297,11 @@ next_id = 0
 def main():
     global next_id
     while True:
-        user_input = input(f'>>>')
+        try:
+            user_input = input(f'>>>')
+        except (EOFError, KeyboardInterrupt):
+            print()
+            break
         try:
             order = parse(user_input)
         except ValueError as e:
