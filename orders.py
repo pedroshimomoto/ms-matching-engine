@@ -108,8 +108,8 @@ def parse(input):
             print(f'Uso: peg <offer|bid> <buy|sell> <qty>')
             return None
         ref = splitted[1].lower() # captar o book que vai ancorar o melhor preço
-        if ref not in ('bid', 'offer'):
-            print(f'Referência inválida: {ref}')
+        if (ref == 'bid' and side_parse(splitted[2]) == 'sell') or (ref == 'offer' and side_parse(splitted[2]) == 'buy'):
+            print(f'Combinação inválida, peg deve ancorar no lado da própria ordem')
             return None
         return {
             'Ordem': splitted[0].lower(),
@@ -165,7 +165,12 @@ def cancel_order(order_id):
     book.remove(order)
 
     del orders_by_id[order_id] # remove do dict também
+
+    if order in pegged_orders: # agora remove a pegged também
+        pegged_orders.remove(order)
+
     print(f'Order cancelled id: {order_id}')
+    reprice_peg()
     return True 
 
 def edit_order(order_id, new_price, new_qty):
@@ -200,11 +205,25 @@ def edit_order(order_id, new_price, new_qty):
             order['Quantidade'] = new_qty #apenas edita, deixa na mesma posição da fila, pois diminuiu qty
 
     print(f'Order eddited id: {order_id} -> {order['Lado']} {order['Quantidade']} @ {order['Preço']}')
+    reprice_peg() #editar ordem pode mudar o preço a ser ancorado
     return True
     
 def best_order(ref):
     book = bids if ref =='bid' else offers # Parser vai pegar apenas a expressão e não o book direto
-    return book[0]['Preço'] if book else None
+    for order in book:
+        if order['Ordem'] != 'peg': # não usa o preço de uma peg como âncora, evita duas peg se ancorarem entre si
+            return order['Preço']
+    return None
+
+def reprice_peg():
+    for order in pegged_orders:
+        new_price = best_order(order['Ref']) # Reprecifica a peg se mudar o preço, o que não acontecia no commit anterior
+        if new_price is None or new_price == order['Preço']:
+            continue
+        book = bids if order['Lado'] == 'buy' else offers
+        book.remove(order)
+        order['Preço'] = new_price
+        insert_book(order)
 
 def compare_price(order, book_order):
     if order['Lado'] == 'buy': #lógica: melhor preço de buy: maior; melhor preço de sell: menor
@@ -263,6 +282,7 @@ def main():
             insert_book(order)
             print(f'Order created: {order['Lado']} {order['Quantidade']} @ {order['Preço']} id: {order['id']}') #print de quando cria a order
 
+        reprice_peg() # sempre no final chama essa função para atualizar a posição da peg, se necessário
 
 
 if __name__ == '__main__':
